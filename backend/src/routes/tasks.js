@@ -17,7 +17,7 @@ const createTaskSchema = z.object({
   question: z.string().min(5).max(500),
 })
 
-router.post('/api/tasks', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const data = createTaskSchema.parse(req.body) // validating req.body
 
@@ -48,7 +48,7 @@ router.post('/api/tasks', async (req, res) => {
 
 
 
-router.get('/api/tasks/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   const id = Number(req.params.id) // Parse `id` as number
   if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid id' })
 
