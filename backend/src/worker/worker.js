@@ -11,38 +11,31 @@ new Worker(
   async (job) => {
     const { id, url, question } = job.data
 
-    // PROCESSING
     await db.update(tasks)
-      .set({ status: 'PROCESSING' })
+      .set({ status: 'PROCESSING', updatedAt: new Date() })
       .where(eq(tasks.id, id))
 
-    // SCRAPE
     const result = await scrapeWebsite(url)
     if (!result.success) {
       await db.update(tasks)
-        .set({ status: 'FAILED', errorMessage: result.error })
+        .set({ status: 'FAILED', errorMessage: result.error, updatedAt: new Date() })
         .where(eq(tasks.id, id))
       throw new Error(result.error)
     }
 
-    // AI
-    const aiResult = await answerQuestion({
-      content: result.content,
-      question,
-    })
-
-    if (!aiResult.success) {
+    const ai = await answerQuestion({ content: result.content, question })
+    if (!ai.success) {
       await db.update(tasks)
-        .set({ status: 'FAILED', errorMessage: aiResult.error })
+        .set({ status: 'FAILED', errorMessage: ai.error, updatedAt: new Date() })
         .where(eq(tasks.id, id))
-      throw new Error(aiResult.error)
+      throw new Error(ai.error)
     }
 
-    // COMPLETED
     await db.update(tasks)
       .set({
         status: 'COMPLETED',
-        aiResponse: aiResult.answer,
+        aiResponse: ai.answer,
+        updatedAt: new Date(),
       })
       .where(eq(tasks.id, id))
   },
