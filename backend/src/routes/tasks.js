@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { db } from '../db/connection.js'
 import { tasks } from '../db/schema.js'
 import { addScrapeJob } from '../queue/addScrapeJob.js' 
+import { eq } from 'drizzle-orm'
+
 
 const router = express.Router()
 
@@ -52,16 +54,17 @@ router.get('/:id', async (req, res) => {
   const id = Number(req.params.id) // Parse `id` as number
   if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid id' })
 
-    // Query DB for task
-  const task = await db.query.tasks.findFirst({ // Return full task JSON
-    where: (t, { eq }) => eq(t.id, id),
+    const [task] = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.id, id))
+
+    if (!task) {
+      return res.status(404).json({ error: 'Not found' })
+    }
+
+    res.json(task)
   })
-
-  // If not found → 404
-  if (!task) return res.status(404).json({ error: 'Not found' }) 
-
-  res.json(task)
-})
 
 
 
