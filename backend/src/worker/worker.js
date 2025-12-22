@@ -4,19 +4,20 @@ import { redisConnection } from '../queue/connection.js'
 import { db } from '../db/connection.js'
 import { tasks } from '../db/schema.js'
 import { scrapeWebsite } from '../scraper/scrape.js'
+import { answerQuestion } from '../ai/answer.js'
 
-const worker = new Worker(
+new Worker(
   'scrape-queue',
   async (job) => {
     const { id, url, question } = job.data
 
+    // PROCESSING
     await db.update(tasks)
-      .set({ status: 'PROCESSING' }) // status processing at start
+      .set({ status: 'PROCESSING' })
       .where(eq(tasks.id, id))
 
-    const result = await scrapeWebsite(url) // calling 
-
-      // If !result.success update DB with status = 'FAILED' showing errorMessage = result.error and throw error
+    // SCRAPE
+    const result = await scrapeWebsite(url)
     if (!result.success) {
       await db.update(tasks)
         .set({ status: 'FAILED', errorMessage: result.error })
@@ -24,14 +25,26 @@ const worker = new Worker(
       throw new Error(result.error)
     }
 
-    const scrapedContent = result.content // if success store here
-    await db
-      .update(tasks)
+    // AI
+    const aiResult = await answerQuestion({
+      content: result.content,
+      question,
+    })
+
+    if (!aiResult.success) {
+      await db.update(tasks)
+        .set({ status: 'FAILED', errorMessage: aiResult.error })
+        .where(eq(tasks.id, id))
+      throw new Error(aiResult.error)
+    }
+
+    // COMPLETED
+    await db.update(tasks)
       .set({
         status: 'COMPLETED',
-        aiResponse: 'Scraped OK (no AI yet)',
+        aiResponse: aiResult.answer,
       })
       .where(eq(tasks.id, id))
-      },
+  },
   { connection: redisConnection, concurrency: 3 }
 )
