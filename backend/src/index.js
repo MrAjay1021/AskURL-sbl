@@ -16,6 +16,10 @@ import { tasks } from './db/schema.js'
 import { addScrapeJob } from './queue/addScrapeJob.js'
 //
 
+import tasksRouter from './routes/tasks.js';
+app.use('/api/tasks', tasksRouter)
+
+
 // server health check
 app.get('/health', (req, res) => {
   res.json({ok: true})
